@@ -1,32 +1,105 @@
-# Getting Started
+## 🏛️ Class Diagram
+### Core Components
 
-### Reference Documentation
+#### AuthController
 
-For further reference, please consider the following sections:
+1. Responsibilities: handles /token and /.well-known/jwks.json HTTP endpoints.
 
-* [Official Gradle documentation](https://docs.gradle.org)
-* [Spring Boot Gradle Plugin Reference Guide](https://docs.spring.io/spring-boot/3.5.3/gradle-plugin)
-* [Create an OCI image](https://docs.spring.io/spring-boot/3.5.3/gradle-plugin/packaging-oci-image.html)
-* [Spring Data JPA](https://docs.spring.io/spring-boot/3.5.3/reference/data/sql.html#data.sql.jpa-and-spring-data)
-* [Spring Security](https://docs.spring.io/spring-boot/3.5.3/reference/web/spring-security.html)
-* [Spring Web](https://docs.spring.io/spring-boot/3.5.3/reference/web/servlet.html)
+2. Collaborates with AuthService, UserDetailsService, and KeyPair.
 
-### Guides
+#### AuthService (interface)
 
-The following guides illustrate how to use some features concretely:
+1. Defines method(s) like String generateToken(UserDetails, String service, String scope).
 
-* [Accessing Data with JPA](https://spring.io/guides/gs/accessing-data-jpa/)
-* [Accessing data with MySQL](https://spring.io/guides/gs/accessing-data-mysql/)
-* [Securing a Web Application](https://spring.io/guides/gs/securing-web/)
-* [Spring Boot and OAuth2](https://spring.io/guides/tutorials/spring-boot-oauth2/)
-* [Authenticating a User with LDAP](https://spring.io/guides/gs/authenticating-ldap/)
-* [Building a RESTful Web Service](https://spring.io/guides/gs/rest-service/)
-* [Serving Web Content with Spring MVC](https://spring.io/guides/gs/serving-web-content/)
-* [Building REST services with Spring](https://spring.io/guides/tutorials/rest/)
+#### AuthServiceImpl
 
-### Additional Links
+1. Implements AuthService, uses Jwts.builder() to create JWT with RSA private key.
 
-These additional references should also help you:
+#### JwtAuthFilter
 
-* [Gradle Build Scans – insights for your project's build](https://scans.gradle.com#gradle)
+1. Spring Security filter that extracts and validates JWT on incoming requests.
 
+#### AppConfig
+
+1. Spring @Configuration class that provides beans:
+
+    A. KeyPair (RSA)
+
+    B. JwtDecoder (pointing at JWKS URI)
+
+    C. Security config (PasswordEncoder, AuthenticationProvider, OpenAPI, etc.)
+
+#### Data and Utility Classes
+
+1. AuthRequest
+
+   1.  DTO for login: typically username, password, service, scope.
+
+2. AuthResponse
+
+   1.  DTO wrapping generated JWT: e.g., String token.
+
+3. UserInfoEntity
+
+   1.  JPA entity with user credentials and authorities.
+
+4. UserInfoUserDetails
+
+    1.  Implements Spring UserDetails, built from UserInfoEntity.
+
+5. ErrorCode, ErrorSeverity, AuthException
+
+   1. Error handling enums/exceptions.
+
+#### Relationships
+
+1. AuthController depends on AuthService, UserDetailsService, and KeyPair.
+
+2. AuthServiceImpl implements AuthService.
+
+3. JwtAuthFilter uses KeyPair to validate incoming tokens.
+
+4. AppConfig wires up all dependencies including the RSA KeyPair and JWKS/JWK setup.
+
+#### 🔄 Sequence Diagram: Login → Token Generation → Token Validation
+1. Client → AuthController
+
+    1.  Sends POST /api/auth/token with JSON body containing username, password, service, scope.
+
+2. AuthController → AuthService.validateUser()
+
+    1.  Validates user credentials against DB (via JPA repository).
+
+3. AuthController → UserDetailsService.loadUserByUsername()
+
+    1.  Loads UserDetails (authorities, username).
+
+4. AuthController → AuthService.generateToken(...)
+
+    1.  Generates JWT using RSA private key from KeyPair.
+
+    2.  Embeds kid = auth-key, claims including authorities, service, scope, iss.
+
+5. AuthController → Client
+
+    1. Returns AuthResponse containing JWT token.
+
+6. Client → Resource (e.g., Product Microservice)
+
+    1.  Makes secured request with Authorization: Bearer <JWT> header.
+
+7. ResourceService → JwtDecoder (Nimbus configured via JWKS URI in AppConfig)
+
+    1.  Decodes and validates JWT using the JWKS endpoint (AuthController/.well-known/jwks.json), fetching RSA public key.
+
+8. JwtDecoder → AuthController/jwks.json
+
+    1.  GET request to retrieve RSA public key.
+
+9. ResourceService proceeds
+
+    1.  If JWT is valid, processes request with assigned authority/scope.
+
+10. If invalid
+
+    1.  Filter throws JwtException, request rejected.
