@@ -1,4 +1,97 @@
 ## 🏛️ Class Diagram
+~~~
++------------------------+
+| AuthServerApplication |
++------------------------+
+
++-----------------------+        +----------------------+
+| UserInfoEntity        |<>------| RoleEntity           |
+|-----------------------|        |----------------------|
+| id: Integer           |        | id: Long             |
+| name: String          |        | name: RoleName       |
+| email: String         |        +----------------------+
+| password: String      |
+| roles: Set<RoleEntity>|
++-----------------------+
+
++--------------------------+      +-----------------------------+
+| ServiceEntity            |<>----| ScopeRequestEntity          |
+|--------------------------|      |-----------------------------|
+| id: Long                 |      | id: Long                    |
+| serviceName: String      |      | scope: String               |
+| requestedScopes: List<>  |      | approved: boolean           |
++--------------------------+      | service: ServiceEntity      |
+                                  +-----------------------------+
+
++--------------------+
+| Product            |
+|--------------------|
+| productId: int     |
+| name: String       |
+| qty: int           |
+| price: double      |
++--------------------+
+
++-----------------------------+     +------------------------------+
+| AuthRequest                 |     | AuthResponse                 |
+|-----------------------------|     |------------------------------|
+| username: String            |     | token: String                |
+| password: String            |     +------------------------------+
+| serviceName: String         |
+| service: String             |
+| scope: String               |
++-----------------------------+
+
++-------------------------------+
+| ServiceRegistrationRequest    |
+|-------------------------------|
+| serviceName: String           |
+| description: String           |
+| service: String               |
+| scope: String                 |
++-------------------------------+
+
++------------------------+       +---------------------+
+| UserInfoUserDetails    |<------| UserInfoEntity      |
+|------------------------|       +---------------------+
+| implements UserDetails |
++------------------------+
+
++--------------------------+
+| JwtAuthFilter            |
+|--------------------------|
+| + doFilterInternal(...)  |
++--------------------------+
+
++--------------------------+
+| AuthServiceImpl          |
+|--------------------------|
+| + validateUser(...)      |
+| + generateToken(...)     |
++--------------------------+
+
++-----------------------------+
+| ServiceRegistryServiceImpl |
+|-----------------------------|
+| + registerService(...)     |
+| + approveScope(...)        |
++-----------------------------+
+
++---------------------+
+| RoleService         |
+|---------------------|
+| + assignRole(...)   |
+| + revokeRole(...)   |
+| + getProducts()     |
++---------------------+
+
++---------------------------+
+| UserService               |
+|---------------------------|
+| + loadUserByUsername(...) |
++---------------------------+
+
+~~~
 ### Core Components
 
 #### AuthController
@@ -62,6 +155,51 @@
 4. AppConfig wires up all dependencies including the RSA KeyPair and JWKS/JWK setup.
 
 #### 🔄 Sequence Diagram: Login → Token Generation → Token Validation
+```
+Client            AuthController       AuthServiceImpl       UserService       JwtAuthFilter     ResourceController
+   |                     |                     |                   |                   |                   |
+   |--(POST) /auth/token |                     |                   |                   |                   |
+   |-------------------->|                     |                   |                   |                   |
+   |                     | validateUser(...)   |                   |                   |                   |
+   |                     |-------------------->|                   |                   |                   |
+   |                     |                     | loadUserByName()  |                   |                   |
+   |                     |                     |------------------>|                   |                   |
+   |                     |                     |                   | return UserInfo   |                   |
+   |                     |                     |<------------------|                   |                   |
+   |                     | generateToken(...)  |                   |                   |                   |
+   |                     |-------------------->|                   |                   |                   |
+   |                     |                     | build JWT Token   |                   |                   |
+   |                     |                     |<------------------|                   |                   |
+   |<--------------------|   AuthResponse      |                   |                   |                   |
+   |     (token)         |                     |                   |                   |                   |
+   |                     |                     |                   |                   |                   |
+   |--(GET) /products -----> Resource Server (secured) -----------> JwtAuthFilter      |                   |
+   |  Authorization: Bearer <token>            |                   | extractUsername() |                   |
+   |                                           |                   | loadUserByName()  |                   |
+   |                                           |                   |<------------------|                   |
+   |                                           |                   | setAuthentication |                   |
+   |                                           |                   |------------------>|                   |
+   |                                           |                   |                   |                   |
+   |                                           |   getProducts()   |                   |                   |
+   |                                           |------------------>|                   |                   |
+   |                                           |                   |   return data     |                   |
+   |<--------------------  Products Response ----------------------|                   |                   |
+
+```
+````
+Client                 ServiceRegistryServiceImpl        ServiceRepository       ScopeRequestRepository
+   |                            |                                 |                            |
+   |--POST /registerService---->|                                 |                            |
+   |                            | findByServiceName()             |                            |
+   |                            |-------------------------------> |                            |
+   |                            |                                 | return Optional.empty()    |
+   |                            |                                 |                            |
+   |                            | save new Service + Scope        |                            |
+   |                            |-------------------------------> |                            |
+   |                            |                                 | return ServiceEntity       |
+   |<---------------------------|                                 |                            |
+
+````
 1. Client → AuthController
 
     1.  Sends POST /api/auth/token with JSON body containing username, password, service, scope.

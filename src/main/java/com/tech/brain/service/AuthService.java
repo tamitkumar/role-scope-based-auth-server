@@ -1,10 +1,8 @@
 package com.tech.brain.service;
 
-import com.tech.brain.config.UserInfoUserDetails;
 import com.tech.brain.entity.UserInfoEntity;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import java.security.PublicKey;
 import java.util.Map;
 
 public interface AuthService {
