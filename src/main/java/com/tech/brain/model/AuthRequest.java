@@ -16,11 +16,14 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
+@Schema(description = "Authentication request for token generation")
 public class AuthRequest {
 
+    @Schema(example = "amit")
     @NotBlank(message = "Username cannot be blank")
     private String username;
 
+    @Schema(example = "password123")
     @NotBlank(message = "Password cannot be blank")
     private String password;
 

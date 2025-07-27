@@ -9,6 +9,7 @@ import lombok.Data;
 
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
+@Schema(description = "Service registration payload")
 public class ServiceRegistrationRequest {
 
     @JsonProperty("service_name")

@@ -54,3 +54,9 @@ create table auth.user_roles
 
 create index role_id
     on auth.user_roles (role_id);
+
+CREATE TABLE auth.refresh_token (
+  token_id VARCHAR(255) NOT NULL PRIMARY KEY,
+  username VARCHAR(100) NOT NULL,
+  expiry DATETIME NOT NULL
+);
